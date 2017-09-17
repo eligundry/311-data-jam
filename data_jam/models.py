@@ -6,6 +6,8 @@ import os
 import peewee
 
 from playhouse.db_url import connect
+from playhouse.hybrid import hybrid_property
+from playhouse.shortcuts import case
 
 
 DB = connect(os.environ['DATABASE'])
@@ -15,6 +17,7 @@ class ServiceRequest(peewee.Model):
     agency = peewee.CharField(null=False)
     type = peewee.CharField(null=False)
     descriptor = peewee.CharField(null=True)
+    borough = peewee.CharField(null=False)
     latitude = peewee.DecimalField(
         max_digits=10,
         decimal_places=8,
@@ -45,6 +48,7 @@ class ServiceRequest(peewee.Model):
                     'agency': row['Agency'],
                     'type': row['Type'],
                     'descriptor': row['Descriptor'],
+                    'borough': row['Borugh'],
                     'latitude': row['Latitude'],
                     'longitude': row['Longitude'],
                     'created': row['Created Date'],
@@ -57,11 +61,33 @@ class ServiceRequest(peewee.Model):
 
 
 class Storm(peewee.Model):
-    county = peewee.CharField(null=False)
+    county = peewee.CharField(null=False, index=True)
     date = peewee.DateField(null=False)
     type = peewee.CharField(null=False)
     deaths = peewee.IntegerField(null=False, default=0)
     injured = peewee.IntegerField(null=False, default=0)
+
+    COUNTY_BOROUGH_MAPPING = (
+        ('BRONX (ZONE)', 'BRONX'),
+        ('BRONX CO.', 'BRONX'),
+        ('KINGS (BROOKLYN) (ZONE)', 'BROOKLYN'),
+        ('KINGS CO.', 'BROOKLYN'),
+        ('NEW YORK (MANHATTAN) (ZONE)', 'MANHATTAN'),
+        ('NEW YORK CO.', 'MANHATTAN'),
+        ('NORTHERN QUEENS (ZONE)', 'QUEENS'),
+        ('QUEENS CO.', 'QUEENS'),
+        ('RICHMOND (STATEN IS.) (ZONE)', 'STATEN ISLAND'),
+        ('RICHMOND CO.', 'STATEN ISLAND'),
+        ('SOUTHERN QUEENS (ZONE)', 'QUEENS'),
+    )
+
+    @hybrid_property
+    def borough(self):
+        return dict(self.COUNTY_BOROUGH_MAPPING)[self.county]
+
+    @borough.expression
+    def borough(cls):
+        return case(cls.county, cls.COUNTY_BOROUGH_MAPPING)
 
     class Meta:
         db_table = 'storms'
