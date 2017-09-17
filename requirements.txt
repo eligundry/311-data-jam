@@ -2,3 +2,4 @@ jupyter
 gmaps
 geocoder
 peewee
+numpy

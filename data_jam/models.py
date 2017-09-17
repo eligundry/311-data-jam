@@ -3,6 +3,7 @@
 import csv
 import os
 
+import numpy
 import peewee
 
 from playhouse.db_url import connect
@@ -17,16 +18,16 @@ class ServiceRequest(peewee.Model):
     agency = peewee.CharField(null=False)
     type = peewee.CharField(null=False)
     descriptor = peewee.CharField(null=True)
-    borough = peewee.CharField(null=False)
+    borough = peewee.CharField(null=True, index=True)
     latitude = peewee.DecimalField(
         max_digits=10,
         decimal_places=8,
-        null=False,
+        null=True,
     )
     longitude = peewee.DecimalField(
         max_digits=11,
         decimal_places=8,
-        null=False,
+        null=True,
     )
     created = peewee.DateTimeField(null=False)
     closed = peewee.DateTimeField(null=True)
@@ -37,18 +38,18 @@ class ServiceRequest(peewee.Model):
 
     @classmethod
     def import_from_csv(cls, file_obj):
-        chunk_size = 1000
+        chunk_size = 100
 
         with DB.atomic():
             reader = csv.DictReader(file_obj)
             rows = []
 
-            for idx, row in reader:
+            for idx, row in enumerate(reader):
                 rows.append({
                     'agency': row['Agency'],
-                    'type': row['Type'],
+                    'type': row['Complaint Type'],
                     'descriptor': row['Descriptor'],
-                    'borough': row['Borugh'],
+                    'borough': row['Borough'],
                     'latitude': row['Latitude'],
                     'longitude': row['Longitude'],
                     'created': row['Created Date'],
@@ -56,8 +57,24 @@ class ServiceRequest(peewee.Model):
                 })
 
                 if idx > 0 and idx % chunk_size == 0:
-                    cls.insert_many(rows)
+                    cls.insert_many(rows).execute()
                     rows = []
+
+            if rows:
+                cls.insert_many(rows).execute()
+
+    @classmethod
+    def lat_lngs(cls, expression=None):
+        query = (
+            cls
+            .select(cls.latitude, cls.longitude)
+            .where(cls.latitude != None, cls.longitude != None)
+        )
+
+        if expression:
+            query = query.where(expression)
+
+        return numpy.asarray(list(query.tuples()), dtype=float)
 
 
 class Storm(peewee.Model):
@@ -100,10 +117,12 @@ class Storm(peewee.Model):
             rows = []
 
             for row in reader:
-                cls(**{
+                rows.append({
                     'county': row['county'],
                     'date': row['date'],
                     'type': row['type'],
                     'deaths': row['dth'],
                     'injured': row['inj'],
-                }).save()
+                })
+
+            cls.insert_many(rows).execute()

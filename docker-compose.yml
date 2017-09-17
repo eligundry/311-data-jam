@@ -4,7 +4,8 @@ services:
     build: .
     container_name: data-jam-notebook
     environment:
-      - DATABASE=postgres://postgres:password@postgres:5432/data-jam
+      - DATABASE=postgres://postgres:password@postgres:5432/data_jam
+      - GOOGLE_MAPS_API_KEY=AIzaSyD_UFF7KBCM-dVdT8jurWbSeANmxeeGhSQ
     ports:
       - "8888:8888"
     volumes:
@@ -14,7 +15,7 @@ services:
     image: postgres:9.6
     container_name: data-jam-db
     environment:
-      - POSTGRES_DB=data-jam
+      - POSTGRES_DB=data_jam
       - POSTGRES_PASSWORD=password
     volumes:
       - data_postgres:/var/lib/postgresql/data
