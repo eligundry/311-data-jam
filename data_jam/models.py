@@ -33,11 +33,11 @@ class ServiceRequest(peewee.Model):
         database = DB
 
     @classmethod
-    def import_from_csv(cls, path):
+    def import_from_csv(cls, file_obj):
         chunk_size = 1000
 
-        with DB.atomic(), open(path, 'r') as fp:
-            reader = csv.DictReader(fp)
+        with DB.atomic():
+            reader = csv.DictReader(file_obj)
             rows = []
 
             for idx, row in reader:
@@ -54,3 +54,30 @@ class ServiceRequest(peewee.Model):
                 if idx > 0 and idx % chunk_size == 0:
                     cls.insert_many(rows)
                     rows = []
+
+
+class Storm(peewee.Model):
+    county = peewee.CharField(null=False)
+    date = peewee.DateField(null=False)
+    type = peewee.CharField(null=False)
+    deaths = peewee.IntegerField(null=False, default=0)
+    injured = peewee.IntegerField(null=False, default=0)
+
+    class Meta:
+        db_table = 'storms'
+        database = DB
+
+    @classmethod
+    def import_from_csv(cls, file_obj):
+        with DB.atomic():
+            reader = csv.DictReader(file_obj)
+            rows = []
+
+            for row in reader:
+                cls(**{
+                    'county': row['county'],
+                    'date': row['date'],
+                    'type': row['type'],
+                    'deaths': row['dth'],
+                    'injured': row['inj'],
+                }).save()

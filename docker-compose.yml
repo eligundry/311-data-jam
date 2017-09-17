@@ -3,6 +3,8 @@ services:
   notebook:
     build: .
     container_name: data-jam-notebook
+    environment:
+      - DATABASE=postgres://postgres:password@postgres:5432/data-jam
     ports:
       - "8888:8888"
     volumes:
