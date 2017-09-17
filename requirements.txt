@@ -3,3 +3,5 @@ gmaps
 geocoder
 peewee
 numpy
+psycopg2
+tabulate
