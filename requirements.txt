@@ -1,0 +1,4 @@
+jupyter
+gmaps
+geocoder
+peewee
