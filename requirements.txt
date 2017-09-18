@@ -1,7 +1,7 @@
-jupyter
-gmaps
 geocoder
-peewee
+gmaps
+jupyter
 numpy
+peewee
 psycopg2
 tabulate

@@ -3,15 +3,20 @@
 import csv
 import os
 
+from dateutil.parser import parse as date_parse
+
+import geocoder
 import numpy
 import peewee
 
 from playhouse.db_url import connect
 from playhouse.hybrid import hybrid_property
 from playhouse.shortcuts import case
+from peewee_migrate import Router
 
 
 DB = connect(os.environ['DATABASE'])
+MIGRATION_ROUTER = Router(DB)
 
 
 class ServiceRequest(peewee.Model):
@@ -37,31 +42,30 @@ class ServiceRequest(peewee.Model):
         database = DB
 
     @classmethod
+    @DB.atomic()
     def import_from_csv(cls, file_obj):
         chunk_size = 100
+        reader = csv.DictReader(file_obj)
+        rows = []
 
-        with DB.atomic():
-            reader = csv.DictReader(file_obj)
-            rows = []
+        for idx, row in enumerate(reader):
+            rows.append({
+                'agency': row['Agency'],
+                'type': row['Complaint Type'],
+                'descriptor': row['Descriptor'],
+                'borough': row['Borough'],
+                'latitude': row['Latitude'],
+                'longitude': row['Longitude'],
+                'created': row['Created Date'],
+                'closed': row['Closed Date'] or None,
+            })
 
-            for idx, row in enumerate(reader):
-                rows.append({
-                    'agency': row['Agency'],
-                    'type': row['Complaint Type'],
-                    'descriptor': row['Descriptor'],
-                    'borough': row['Borough'],
-                    'latitude': row['Latitude'],
-                    'longitude': row['Longitude'],
-                    'created': row['Created Date'],
-                    'closed': row['Closed Date'] or None,
-                })
-
-                if idx > 0 and idx % chunk_size == 0:
-                    cls.insert_many(rows).execute()
-                    rows = []
-
-            if rows:
+            if idx > 0 and idx % chunk_size == 0:
                 cls.insert_many(rows).execute()
+                rows = []
+
+        if rows:
+            cls.insert_many(rows).execute()
 
     @classmethod
     def lat_lngs(cls, expression=None):
@@ -111,18 +115,66 @@ class Storm(peewee.Model):
         database = DB
 
     @classmethod
+    @DB.atomic()
     def import_from_csv(cls, file_obj):
-        with DB.atomic():
-            reader = csv.DictReader(file_obj)
-            rows = []
+        reader = csv.DictReader(file_obj)
+        rows = []
 
-            for row in reader:
-                rows.append({
-                    'county': row['county'],
-                    'date': row['date'],
-                    'type': row['type'],
-                    'deaths': row['dth'],
-                    'injured': row['inj'],
-                })
+        for row in reader:
+            rows.append({
+                'county': row['county'],
+                'date': date_parse(row['date']).date(),
+                'type': row['type'],
+                'deaths': row['dth'],
+                'injured': row['inj'],
+            })
 
-            cls.insert_many(rows).execute()
+        cls.insert_many(rows).execute()
+
+
+class PermittedEvent(peewee.Model):
+    name = peewee.CharField(max_length=1000, null=True)
+    borough = peewee.CharField(null=True, index=True)
+    latitude = peewee.DecimalField(
+        max_digits=10,
+        decimal_places=8,
+        null=True,
+    )
+    longitude = peewee.DecimalField(
+        max_digits=11,
+        decimal_places=8,
+        null=True,
+    )
+    start_time = peewee.DateTimeField(null=False)
+    end_time = peewee.DateTimeField(null=False)
+
+    class Meta:
+        db_table = 'permitted_events'
+        database = DB
+
+    @classmethod
+    @DB.atomic()
+    def import_from_csv(cls, file_obj):
+        reader = csv.DictReader(file_obj)
+        rows = []
+
+        for row in reader:
+            coded = geocoder.google(row['Event Location'])
+
+            if coded.ok:
+                longitude, latitude = (
+                    coded.geojson['features'][0]['geometry']['coordinates']
+                )
+            else:
+                continue
+
+            rows.append({
+                'name': row['Event Name'],
+                'start_time': row['Start Date/Time'],
+                'end_time': row['End Date/Time'],
+                'borough': row['Event Borough'].upper(),
+                'latitude': latitude,
+                'longitude': longitude,
+            })
+
+        cls.insert_many(rows).execute()

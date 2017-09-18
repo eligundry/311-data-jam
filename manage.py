@@ -11,10 +11,20 @@ def cli():
 
 
 @cli.command()
-def create_tables():
-    """Create the tables needed by this project."""
-    models.ServiceRequest.create_table()
-    models.Storm.create_table()
+def migrate():
+    models.MIGRATION_ROUTER.run()
+
+
+@cli.command()
+@click.argument('name')
+def rollback(name):
+    models.MIGRATION_ROUTER.rollback(name)
+
+
+@cli.command()
+@click.argument('name')
+def create_migration(name):
+    models.MIGRATION_ROUTER.create(name)
 
 
 @cli.command()
@@ -42,6 +52,13 @@ def import_storm_data(path):
     """
     models.Storm.import_from_csv(path)
     print("Successfully imported the Storm data!")
+
+
+@cli.command()
+@click.argument('path', type=click.File('r', encoding='utf-8'))
+def import_permitted_events_data(path):
+    models.PermittedEvent.import_from_csv(path)
+    print("Successfully import the Permitted Events data!")
 
 
 if __name__ == '__main__':
