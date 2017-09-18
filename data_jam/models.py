@@ -44,7 +44,7 @@ class ServiceRequest(peewee.Model):
     @classmethod
     @DB.atomic()
     def import_from_csv(cls, file_obj):
-        chunk_size = 100
+        chunk_size = 10000
         reader = csv.DictReader(file_obj)
         rows = []
 
@@ -63,6 +63,7 @@ class ServiceRequest(peewee.Model):
             if idx > 0 and idx % chunk_size == 0:
                 cls.insert_many(rows).execute()
                 rows = []
+                print(f"Inserted {idx} service requests!")
 
         if rows:
             cls.insert_many(rows).execute()
