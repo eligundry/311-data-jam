@@ -10,7 +10,7 @@ import numpy
 import peewee
 
 from playhouse.db_url import connect
-from playhouse.hybrid import hybrid_property
+from playhouse.hybrid import hybrid_property, hybrid_method
 from playhouse.shortcuts import case
 from peewee_migrate import Router
 
@@ -68,18 +68,37 @@ class ServiceRequest(peewee.Model):
         if rows:
             cls.insert_many(rows).execute()
 
+    @hybrid_method
+    def happened_between(self, start, end):
+        return (self.created >= start) & (self.created <= end)
+
     @classmethod
-    def lat_lngs(cls, expression=None):
+    def count_by_day(cls, start, end):
         query = (
             cls
+            .select(
+                peewee.fn.DATE(cls.created).alias('date'),
+                peewee.fn.COUNT(cls.id).alias('calls'),
+            )
+            .where(cls.happened_between(start, end))
+        )
+        query = (
+            query
+            .group_by(query.c.date)
+            .order_by(query.c.date.asc())
+        )
+
+        return query.tuples()
+
+    @classmethod
+    def lat_lngs(cls, query=None):
+        query = (
+            (query or cls.select())
             .select(cls.latitude, cls.longitude)
             .where(cls.latitude != None, cls.longitude != None)
         )
 
-        if expression:
-            query = query.where(expression)
-
-        return numpy.asarray(list(query.tuples()), dtype=float)
+        return numpy.asarray(query.tuples(), dtype=float)
 
 
 class Storm(peewee.Model):

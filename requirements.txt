@@ -3,5 +3,6 @@ gmaps
 jupyter
 numpy
 peewee
+pendulum
 psycopg2
 tabulate
