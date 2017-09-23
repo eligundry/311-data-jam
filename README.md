@@ -37,6 +37,6 @@ From the 311 Data Jam project document:
 
 1. `docker-compose up`
 2. `docker exec -it -u 0 data-jam-notebook python manage.py migrate`
-3. `docker exec -it -u 0 data-jam-notebook python import_service_request_data <path-to-311-data>`
-4. `docker exec -it -u 0 data-jam-notebook python import_storm_data data/storms.csv`
-5. `docker exec -it -u 0 data-jam-Notebook python import_permitted_events_data data/permitted_events.csv`
+3. `docker exec -it -u 0 data-jam-notebook python manage.py import_service_request_data <path-to-311-data>`
+4. `docker exec -it -u 0 data-jam-notebook python manage.py import_storm_data data/storms.csv`
+5. `docker exec -it -u 0 data-jam-notebook python manage.py import_permitted_events_data data/permitted_events.csv`
