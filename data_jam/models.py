@@ -1,13 +1,16 @@
 """Module that defines helper models for this data jam."""
 
 import csv
+import decimal
 import os
 
 from dateutil.parser import parse as date_parse
 
+import bs4
 import geocoder
 import numpy
 import peewee
+import requests
 
 from playhouse.db_url import connect
 from playhouse.hybrid import hybrid_property, hybrid_method
@@ -198,3 +201,97 @@ class PermittedEvent(peewee.Model):
             })
 
         cls.insert_many(rows).execute()
+
+
+class Event(peewee.Model):
+    short_description = peewee.CharField(null=True)
+    description = peewee.TextField(null=True)
+    start_time = peewee.DateTimeField(index=True, null=True)
+    end_time = peewee.DateTimeField(null=True)
+    borough = peewee.CharField(null=True, index=True)
+    latitude = peewee.DecimalField(
+        max_digits=10,
+        decimal_places=8,
+        null=True,
+    )
+    longitude = peewee.DecimalField(
+        max_digits=11,
+        decimal_places=8,
+        null=True,
+    )
+
+    NORMALIZED_BOURUGHS = {
+        'qn': 'QUEENS',
+        'mn': 'MANHATTAN',
+        'bk': 'BROOKLYN',
+        'bx': 'BRONX',
+        'si': 'STATEN ISLAND',
+        'other': 'MANHATTAN',
+    }
+
+    class Meta:
+        db_table = 'events'
+        database = DB
+
+    @classmethod
+    def import_from_site(cls, start_page=1):
+        url = 'http://www1.nyc.gov/calendar/api/json/search.htm'
+        params = {
+            'sort': 'DATE',
+            'pageNumber': start_page,
+        }
+        is_last_page = False
+
+        while not is_last_page:
+            resp = requests.get(url, params=params)
+
+            try:
+                resp.raise_for_status()
+            except requests.exceptions.HTTPError:
+                continue
+
+            data = resp.json()
+            rows = []
+
+            with DB.atomic():
+                for item in data['items']:
+                    geo = item.get('geometry')
+
+                    if not geo:
+                        coded = geocoder.google(item['address'])
+
+                        if not coded.ok:
+                            continue
+
+                        longitude, latitude = (
+                            coded.geojson['features'][0]['geometry']['coordinates']
+                        )
+
+                    else:
+                        longitude = geo[0]['lng']
+                        latitude = geo[0]['lat']
+
+                    soup = bs4.BeautifulSoup(item.get('desc', ''), 'html5lib')
+
+                    for borough in item['boroughs']:
+                        try:
+                            rows.append({
+                                'short_description': item['shortDesc'],
+                                'description': soup.get_text(),
+                                'start_time': item.get('startDate'),
+                                'end_time': item.get('endDate'),
+                                'borough': cls.NORMALIZED_BOURUGHS[borough.lower()],
+                                'latitude': decimal.Decimal(latitude),
+                                'longitude': decimal.Decimal(longitude),
+                            })
+                        except:
+                            continue
+
+                cls.insert_many(rows).execute()
+                rows = []
+                params['pageNumber'] += 1
+                progress = data['pagination']['currentPage'] * 10
+                print(f"Imported {progress} Events!")
+
+
+            is_last_page = data['pagination']['isLastPage']

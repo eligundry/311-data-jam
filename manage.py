@@ -61,5 +61,12 @@ def import_permitted_events_data(path):
     print("Successfully import the Permitted Events data!")
 
 
+@cli.command()
+@click.option('--page', default=1, type=click.INT)
+def import_nyc_events(page):
+    models.Event.import_from_site(page)
+    print("Successfully imported the Events data!")
+
+
 if __name__ == '__main__':
     cli()
