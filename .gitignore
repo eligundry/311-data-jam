@@ -109,3 +109,6 @@ venv.bak/
 .local/
 .ipython/
 .bash_history
+.conda/
+.plotly/
+.jupyter/

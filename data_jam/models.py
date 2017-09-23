@@ -34,7 +34,7 @@ class ServiceRequest(peewee.Model):
         decimal_places=8,
         null=True,
     )
-    created = peewee.DateTimeField(null=False)
+    created = peewee.DateTimeField(null=False, index=True)
     closed = peewee.DateTimeField(null=True)
 
     class Meta:

@@ -1,5 +1,6 @@
 geocoder
 gmaps
+google-cloud-bigquery
 jupyter
 numpy
 peewee
