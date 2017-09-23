@@ -12,6 +12,7 @@ import numpy
 import peewee
 import requests
 
+from playhouse.postgres_ext import ArrayField
 from playhouse.db_url import connect
 from playhouse.hybrid import hybrid_property, hybrid_method
 from playhouse.shortcuts import case
@@ -295,3 +296,68 @@ class Event(peewee.Model):
 
 
             is_last_page = data['pagination']['isLastPage']
+
+
+class Weather(peewee.Model):
+    date = peewee.DateField(null=False, index=True)
+    temp_avg = peewee.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=False,
+    )
+    temp_low = peewee.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=False,
+    )
+    temp_high = peewee.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=False,
+    )
+    precipitation = peewee.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=False,
+        default=0,
+    )
+    humidity = peewee.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=False,
+    )
+    dew_point = peewee.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=False,
+    )
+    events = ArrayField(field_class=peewee.CharField)
+
+    class Meta:
+        db_table = 'weather'
+        database = DB
+
+    @classmethod
+    @DB.atomic()
+    def import_from_csv(cls, file_obj):
+        reader = csv.DictReader(file_obj)
+        rows = []
+
+        for row in reader:
+            events = [event.strip() for event in row['event'].split(',')]
+
+            if events == ['']:
+                events = []
+
+            rows.append({
+                'date': row['Date'],
+                'temp_avg': row['T_avg'],
+                'temp_low': row['T_low'],
+                'temp_high': row['T_high'],
+                'precipitation': row['R_sum'],
+                'humidity': row['H_high'],
+                'dew_point': row['DP_high'],
+                'events': events,
+            })
+
+        cls.insert_many(rows).execute()

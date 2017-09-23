@@ -68,5 +68,12 @@ def import_nyc_events(page):
     print("Successfully imported the Events data!")
 
 
+@cli.command()
+@click.argument('path', type=click.File('r', encoding='utf-8'))
+def import_weather(path):
+    models.Weather.import_from_csv(path)
+    print("Successfully imported Weather data!")
+
+
 if __name__ == '__main__':
     cli()
